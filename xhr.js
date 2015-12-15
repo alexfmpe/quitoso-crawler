@@ -4,7 +4,14 @@ var log = console.log
 var ERROR = {
   multipleTables : "GTFO: Found more than one <table> on page"
 }
-jsdom.env(url, ["http://code.jquery.com/jquery.js"], parseTable);
+
+main()
+
+function main() {
+  var scripts = ["http://code.jquery.com/jquery.js"]
+  var config = { encoding: "binary" }
+  jsdom.env(url, scripts, config, parseTable);
+}
 
 function GTFO(e) {
   log(e)
@@ -13,7 +20,6 @@ function GTFO(e) {
 
 function parseTable(err, window) {
   var $ = window.$
-  var text = (i,n) => n.textContent
   var _infestant = ""
   var _substance = ""
 
