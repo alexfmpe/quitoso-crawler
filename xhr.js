@@ -62,7 +62,7 @@ function parseHorticulture(err, window) {
     var cells = $("td", tr)
     var horticulture = Horticulture.factoryApply(cells.toArray())
     log("===")
-    log(_substance.textContent.trim())
+    log(_substance.textContent.trimAll())
   }
 
   function Horticulture(infestant, substance, formulation, dosage, days, notes) {
@@ -89,9 +89,13 @@ Function.prototype.factory =
       return Function.prototype.factoryApply.call(this, arguments2array(arguments))
     }
 
-
 Function.prototype.factoryApply =
   function(args) {
     var fact = Function.prototype.bind.apply(this, [{}].concat(args))
     return new fact()
+  }
+
+String.prototype.trimAll =
+  function() {
+    return this.replace(/\s+/g, " ").trim()
   }
