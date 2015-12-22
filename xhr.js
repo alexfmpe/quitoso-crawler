@@ -2,7 +2,7 @@ var jsdom = require("jsdom")
 
 var root  = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var group = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"
-var url = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/tomateiro1.htm"
+//var url = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/tomateiro1.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config = { encoding: "binary" }
 
@@ -42,7 +42,6 @@ function parseGroup(err, window) {
 
     var href = window.$('a', horticulture).attr("href")
     var url = relativeURL(window.location.href, href)
-	log(url)
     fetch(url, parseHorticulture)
   }
 }
@@ -52,16 +51,47 @@ function parseHorticulture(err, window) {
   var _infestant = ""
   var _substance = ""
 
-  if($("table").length > 1)   GTFO(window.location.href + "\t" + ERROR.multipleTables);
+  log(window.location.href)
+  if($("table").length > 1)   {
+    log(window.location.href + "\t" + ERROR.multipleTables);
+    return;
+  }
   $("tr").each(parseRow)
 
   function parseRow(i, tr) {
     var cells = $("td", tr)
-    var [infestant, substance, formulation, dosage, days, notes] = cells.toArray()
+    var horticulture = Horticulture.factoryApply(cells.toArray())
+    log("===")
+    log(_substance.textContent.trim())
+  }
+
+  function Horticulture(infestant, substance, formulation, dosage, days, notes) {
+    //log(substance.textContent)
     _infestant = infestant.textContent.trim() == "" ? _infestant : infestant
     _substance = substance.textContent.trim() == "" ? _substance : substance
-    log(_substance.textContent)
+
+    this.infestant = infestant
+    this.substance = substance
+    this.formulation = formulation
+    this.dosage = dosage
+    this.days = days
+    this.notes = notes
   }
 }
 
+//kinda should not slice because V8 is a crybaby
+function arguments2array(args) {
+  return [].slice.call(args, 0, args.length)
+}
 
+Function.prototype.factory =
+    function(/* arguments */) {
+      return Function.prototype.factoryApply.call(this, arguments2array(arguments))
+    }
+
+
+Function.prototype.factoryApply =
+  function(args) {
+    var fact = Function.prototype.bind.apply(this, [{}].concat(args))
+    return new fact()
+  }
