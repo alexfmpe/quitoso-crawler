@@ -2,29 +2,37 @@ var jsdom = require("jsdom")
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"
-//var page  = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/tomateiro1.htm"
 var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
 var log = console.log
+
 var ERROR = {
-  multipleTables : "Found more than one <table> on page"
+  loadError       : "Error when loading page and/or jQuery",
+  multipleTables  : "Multiple tables",
+  zeroTables      : "No tables found"
+}
+var NODE_TYPES  = {
+  TEXT_NODE     : 3
 }
 
 main()
 
 function main() {
   fetch(group, parseGroup)
-  //fetch(page, parseHorticulture)
+  //fetch(page, parsePage)
 }
 
 function fetch(url, callback) {
-    jsdom.env(url, scripts, config, callback)
+  jsdom.env(url, scripts, config, callback)
 }
 
-function GTFO(e) {
-  log("GTFO: " + e)
+function note(e, cause) {
+  log("NOTE: " + e + "\n" + cause)
+}
+function GTFO(e, cause) {
+  log("GTFO " + e + "\n" + cause)
   process.exit(1)
 }
 
@@ -34,23 +42,23 @@ function relativeURL(origin, path) {
 }
 
 function parseGroup(err, window) {
-  window.$("tr").each(parseRow)
+  if(err) GTFO(ERROR.loadError, err)
+  map(window.$("tr"), parseRow)
 
-  function parseRow(i, tr) {
+  function parseRow(tr) {
     var rows = window.$("td", tr)
     var [horticulture, date] = rows.toArray()
     if(! /\w+/.test(horticulture.textContent)) return;
 
     var href = window.$('a', horticulture).attr("href")
     var url = relativeURL(window.location.href, href)
-    fetch(url, parseHorticulture)
+    fetch(url, parsePage)
   }
 }
 
 function textBetween($, start, stop) {
-  var id = x => x
-  var between = JQ.map($("*").slice(start,stop), (i,e) => e)
-  var texts = between.flatMap(e => map(e.childNodes, id).filter(c => c.nodeType == 3))
+  var between = slice($("*"), start, stop)
+  var texts = flatMap(between, e => filter(e.childNodes, (c => c.nodeType == NODE_TYPES.TEXT_NODE)))
   return $(texts).text().trimAll()
 }
 
@@ -60,33 +68,30 @@ function tagIndexes($, e) {
   return [start, end]
 }
 
-function parseHorticulture(err, window) {
+function parsePage(err, window) {
+  if(err) GTFO(ERROR.loadError, err)
+
   var $ = window.$
   var rootIndex = $('body').index('*')
   var previous = undefined
 
   var tables = $("table")
 
-  var [startIndexes, endIndexes] = unzip(JQ.map(tables, (i,e) => tagIndexes($, e)))
-  var intervals = zip([rootIndex].concat(endIndexes), startIndexes)
-  var titles = intervals.map(i => textBetween.call(null, $, i[0], i[1]))
+  var [startIndexes, endIndexes] = unzip(map(tables, e => tagIndexes($, e)))
+  var intervals = zip(concat([rootIndex], endIndexes), startIndexes)
+  var titles = map(intervals, i => textBetween.call(null, $, i[0], i[1]))
 
-/*
-  log(startIndexes)
-  log(endIndexes)
-  log(intervals)
-*/
-  if(titles.length != 1)
-    log(window.location.href)
-
-  //titles.forEach(log)
   log(titles)
+  if(titles.length != 1)    note(ERROR.multipleTables, window.location.href)
+  if(tables.length == 0)    note(ERROR.zeroTables,     window.location.href)
+  map(zip(tables, titles), parseTable)
 
+  function parseTable(table, title) {
+    var rows = prune(map($("tr", table).next(), parseRow))
+    //map(rows, r => log(title + "\t" + r.toCSV()))
+  }
 
-  var rows = JQ.map($("tr").next(), parseRow).prune()
-  //rows.forEach(r => log(r.toCSV()))
-
-  function parseRow(i, tr) {
+  function parseRow(tr) {
     if(tr.textContent.trimAll() == "") return;
 
     var cells = $("td", tr)
@@ -109,7 +114,7 @@ function Horticulture(infestant, substance, formulation, dosage, days, notes) {
   this.notes = notes
 }
 Horticulture.prototype.columns = function() { return Object.keys(this) }
-Horticulture.prototype.toCSV = function() { return this.columns().map(c => this[c].textContent.trimAll()).join(",") }
+Horticulture.prototype.toCSV = function() { return map(this.columns(), c => this[c].textContent.trimAll()).join(",") }
 
 //kinda should not slice because V8 is a crybaby
 function arguments2array(args) {
@@ -129,26 +134,8 @@ String.prototype.trimAll = function() {
   return this.replace(/\s+/g, " ").trim()
 }
 
-Array.prototype.prune = function() {
-  return this.filter(s => s != undefined)
-}
-
-Array.prototype.flatMap = function(lambda) {
-  return Array.prototype.concat.apply([], this.map(lambda));
-}
-
-var JQ = {
-  map : function(jQueryObj, f) {
-    var arr = []
-
-    function ff(index, element) {
-      var res = f(index, element)
-      arr.push(res)
-    }
-
-    jQueryObj.each(ff)
-    return arr
-  }
+function id(x) {
+  return x
 }
 
 function zip(xs, ys) {
@@ -170,5 +157,41 @@ function unzip(xys) {
 }
 
 function map(xs, f) {
-  return [].slice.call(xs).map(f)
+  var f_ = f.length > 1 ? (args => f.apply(null, args)) : f
+  var map_ = (xs.jQuery != undefined) ? JQ.map : [].slice.call(xs).map.bind(xs)
+  return map_(f_)
+}
+
+function flatMap(xs, f) {
+  return Array.prototype.concat.apply([], map(xs, f))
+}
+
+function slice(xs, start, end) {
+  return map(xs, id).slice(start, end)
+}
+
+function prune(xs) {
+  return xs.map(id).filter(s => s != undefined)
+}
+
+function filter(xs, p) {
+  return prune(map(xs, x => p(x) ? x : undefined))
+}
+
+function concat() {
+  return Array.prototype.concat.apply([], map(arguments, id))
+}
+
+var JQ = {
+  map : function(jQueryObj, f) {
+    var arr = []
+
+    function ff(index, element) {
+      var res = f(index, element)
+      arr.push(res)
+    }
+
+    jQueryObj.each(ff)
+    return arr
+  }
 }
