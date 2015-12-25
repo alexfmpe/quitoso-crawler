@@ -1,5 +1,5 @@
 all:
-	node --harmony-destructuring xhr.js
+	node --harmony-destructuring parser.js
 
 deps:
 	npm install jsdom
