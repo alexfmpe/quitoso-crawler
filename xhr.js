@@ -2,29 +2,29 @@ var jsdom = require("jsdom")
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"
-var tomato  = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/tomateiro1.htm"
+//var page  = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/tomateiro1.htm"
+var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
 var log = console.log
 var ERROR = {
-  multipleTables : "GTFO: Found more than one <table> on page"
+  multipleTables : "Found more than one <table> on page"
 }
 
 main()
 
+function main() {
+  fetch(group, parseGroup)
+  //fetch(page, parseHorticulture)
+}
 
 function fetch(url, callback) {
     jsdom.env(url, scripts, config, callback)
 }
 
-function main() {
-  //fetch(group, parseGroup)
-  fetch(tomato, parseHorticulture)
-}
-
 function GTFO(e) {
-  log(e)
+  log("GTFO: " + e)
   process.exit(1)
 }
 
@@ -47,19 +47,44 @@ function parseGroup(err, window) {
   }
 }
 
+function textBetween($, start, stop) {
+  var id = x => x
+  var between = JQ.map($("*").slice(start,stop), (i,e) => e)
+  var texts = between.flatMap(e => map(e.childNodes, id).filter(c => c.nodeType == 3))
+  return $(texts).text().trimAll()
+}
+
+function tagIndexes($, e) {
+  var start = $(e).index('*')
+  var end = start + 1 + $(e).find('*').size()
+  return [start, end]
+}
+
 function parseHorticulture(err, window) {
   var $ = window.$
+  var rootIndex = $('body').index('*')
   var previous = undefined
 
-  log(window.location.href)
-  if($("table").length > 1)   {
-    log(window.location.href + "\t" + ERROR.multipleTables);
-    return;
-  }
+  var tables = $("table")
+
+  var [startIndexes, endIndexes] = unzip(JQ.map(tables, (i,e) => tagIndexes($, e)))
+  var intervals = zip([rootIndex].concat(endIndexes), startIndexes)
+  var titles = intervals.map(i => textBetween.call(null, $, i[0], i[1]))
+
+/*
+  log(startIndexes)
+  log(endIndexes)
+  log(intervals)
+*/
+  if(titles.length != 1)
+    log(window.location.href)
+
+  //titles.forEach(log)
+  log(titles)
 
 
   var rows = JQ.map($("tr").next(), parseRow).prune()
-  rows.forEach(r => log(r.toCSV()))
+  //rows.forEach(r => log(r.toCSV()))
 
   function parseRow(i, tr) {
     if(tr.textContent.trimAll() == "") return;
@@ -124,4 +149,26 @@ var JQ = {
     jQueryObj.each(ff)
     return arr
   }
+}
+
+function zip(xs, ys) {
+  var arr = []
+  var len = Math.min(xs.length, ys.length)
+  for(var i = 0; i < len; i++)
+    arr.push([xs[i], ys[i]])
+  return arr
+}
+
+function unzip(xys) {
+  var xs = []
+  var ys = []
+  for(var i = 0; i < xys.length; i++) {
+    xs.push(xys[i][0])
+    ys.push(xys[i][1])
+  }
+  return [xs,ys]
+}
+
+function map(xs, f) {
+  return [].slice.call(xs).map(f)
 }
