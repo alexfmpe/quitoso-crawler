@@ -82,7 +82,7 @@ function parsePage(err, window) {
   var titles = map(intervals, i => textBetween.call(null, $, i[0], i[1]))
 
   log(titles)
-  if(titles.length != 1)    note(ERROR.multipleTables, window.location.href)
+  if(tables.length > 1)     note(ERROR.multipleTables, window.location.href)
   if(tables.length == 0)    note(ERROR.zeroTables,     window.location.href)
   map(zip(tables, titles), parseTable)
 
