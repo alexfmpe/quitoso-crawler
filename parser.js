@@ -1,8 +1,8 @@
 var jsdom = require("jsdom")
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
-var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"
-var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
+var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
+var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/agriao.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
@@ -20,8 +20,8 @@ var NODE_TYPES  = {
 main()
 
 function main() {
-  fetch(group, parseGroup)
-  //fetch(page, parsePage)
+  //fetch(group, parseGroup)
+  fetch(page, parsePage)
 }
 
 function fetch(url, callback) {
@@ -88,13 +88,14 @@ function parsePage(err, window) {
 
   function parseTable(table, title) {
     var rows = prune(map($("tr", table).next(), parseRow))
-    //map(rows, r => log(title + "\t" + r.toCSV()))
+    //map(rows, r => log(r.textContent))
+    map(rows, r => log(title + "\t" + r.toCSV()))
   }
 
   function parseRow(tr) {
     if(tr.textContent.trimAll() == "") return;
-
     var cells = $("td", tr)
+
     var h = Horticulture.factoryApply(cells.toArray())
     previous = previous || h
     if("" == h.infestant.textContent.trim()) h.infestant = previous.infestant
@@ -114,7 +115,10 @@ function Horticulture(infestant, substance, formulation, dosage, days, notes) {
   this.notes = notes
 }
 Horticulture.prototype.columns = function() { return Object.keys(this) }
-Horticulture.prototype.toCSV = function() { return map(this.columns(), c => this[c].textContent.trimAll()).join(",") }
+Horticulture.prototype.toCSV = function() {
+  var values = prune(map(this.columns(), c => this[c]))
+  return map(values, v => v.textContent.trimAll()).join(",")
+}
 
 //kinda should not slice because V8 is a crybaby
 function arguments2array(args) {
