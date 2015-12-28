@@ -42,15 +42,16 @@ function relativeURL(origin, path) {
 }
 
 function parseGroup(err, window) {
+  var $ = window.$
   if(err) GTFO(ERROR.loadError, err)
-  map(window.$("tr"), parseRow)
+  map($("tr"), parseRow)
 
   function parseRow(tr) {
-    var rows = window.$("td", tr)
+    var rows = $("td", tr)
     var [horticulture, date] = rows.toArray()
     if(! /\w+/.test(horticulture.textContent)) return;
 
-    var href = window.$('a', horticulture).attr("href")
+    var href = $('a', horticulture).attr("href")
     var url = relativeURL(window.location.href, href)
     fetch(url, parsePage)
   }
@@ -109,7 +110,6 @@ function parsePage(err, window) {
 
   function parseTable(table, title) {
     var rows = prune(map($("tr", table).next(), parseRow))
-    //map(rows, r => log(r.textContent))
     map(rows, r => log(title + "\t" + r.toCSV()))
   }
 
@@ -183,7 +183,8 @@ function unzip(xys) {
 
 function map(xs, f) {
   var f_ = f.length > 1 ? (args => f.apply(null, args)) : f
-  var map_ = (xs.jQuery != undefined) ? JQ.map : [].slice.call(xs).map.bind(xs)
+  var map_ = [].slice.call(xs).map.bind(xs)
+
   return map_(f_)
 }
 
@@ -205,18 +206,4 @@ function filter(xs, p) {
 
 function concat() {
   return Array.prototype.concat.apply([], map(arguments, id))
-}
-
-var JQ = {
-  map : function(jQueryObj, f) {
-    var arr = []
-
-    function ff(index, element) {
-      var res = f(index, element)
-      arr.push(res)
-    }
-
-    jQueryObj.each(ff)
-    return arr
-  }
 }
