@@ -2,7 +2,7 @@ var jsdom = require("jsdom")
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
-var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/agriao.htm"
+var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/videira.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
@@ -58,33 +58,54 @@ function parseGroup(err, window) {
 
 function textBetween($, start, stop) {
   var between = slice($("*"), start, stop)
-  var texts = flatMap(between, e => filter(e.childNodes, (c => c.nodeType == NODE_TYPES.TEXT_NODE)))
-  return $(texts).text().trimAll()
-}
-
-function tagIndexes($, e) {
-  var start = $(e).index('*')
-  var end = start + 1 + $(e).find('*').size()
-  return [start, end]
+  var texts = flatMap(between, e => filter(e.childNodes, c => c.nodeType == NODE_TYPES.TEXT_NODE))
+  return $(texts).text()
 }
 
 function parsePage(err, window) {
   if(err) GTFO(ERROR.loadError, err)
 
-  var $ = window.$
-  var rootIndex = $('body').index('*')
-  var previous = undefined
+  var $           = window.$
+  var url         = window.location.href
+  var all         = $('*')
+  var firstIndex  = all.index($('body'))
+  var previous    = undefined
 
   var tables = $("table")
-
-  var [startIndexes, endIndexes] = unzip(map(tables, e => tagIndexes($, e)))
-  var intervals = zip(concat([rootIndex], endIndexes), startIndexes)
-  var titles = map(intervals, i => textBetween.call(null, $, i[0], i[1]))
+  var [startIndexes, endIndexes] = unzip(map(tables, tagIndexes))
+  var intervals = zip(concat([firstIndex], endIndexes), startIndexes)
+  var titles = map(intervals, i => textBetween($, i[0], i[1]).trimAll())
+  var obs = parseObservations()
 
   log(titles)
-  if(tables.length > 1)     note(ERROR.multipleTables, window.location.href)
-  if(tables.length == 0)    note(ERROR.zeroTables,     window.location.href)
+  log(url)
+  log(numberedObservations(obs))
+
+  if(tables.length > 1)     note(ERROR.multipleTables, url)
+  if(tables.length == 0)    note(ERROR.zeroTables,     url)
   map(zip(tables, titles), parseTable)
+
+  function tagIndexes(e) {
+    var start = all.index(e)
+    var end = start + 1 + $(e).find('*').size()
+    return [start, end]
+  }
+
+  function numberedObservations(xs) {
+    return xs.map((x,i) => "(" + (i+1) + ") " + x).join('\n')
+  }
+
+  function parseObservations() {
+    var everything  = window.document.body.textContent
+    var start       = "Observações"
+    var end         = "Voltar a Guia de Condições"
+    var anything    = "[^]*"
+    var flags       = "gi"
+    var regexp      = new RegExp(start + anything + end, flags)
+    var obs         = everything.match(regexp)[0]
+    var list        = slice(obs.split(/^\d+[.]/gim), 1)
+    return map(list, l => l.trimAll())
+  }
 
   function parseTable(table, title) {
     var rows = prune(map($("tr", table).next(), parseRow))
