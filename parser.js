@@ -11,10 +11,9 @@ Promise.promisifyAll(jsdom)
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
-//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/agriao.htm"
 //var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
 //var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/actin%C3%ADdea%20(kiwi).htm"
-var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/abobora.htm"
+var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
@@ -62,7 +61,7 @@ function parseGroup(window) {
   var $ = window.$
   var rows = $("tr")
   var rs = slice(rows, 0, 5)
-  return Promise.all(flatMap(rs, parseRow))
+  return Promise.all(flatMap(rows, parseRow))
 
   function parseRow(tr) {
     var cells = $("td", tr)
@@ -98,15 +97,14 @@ function parsePage(window) {
   var [startIndexes, endIndexes] = unzip(map(tables, tagIndexes))
   var intervals = zip(concat([firstIndex], endIndexes), startIndexes)
   var titles = map(intervals, i => textBetween($, i[0], i[1]).trimAll())
-  var obs = parseObservations()
+  var obs = numberedObservations(parseObservations())
 
   if(tables.length > 1)     note(MESSAGES.multipleTables, url)
   if(tables.length == 0)    note(MESSAGES.zeroTables,     url)
 
-  return {
-    entries:       flatMap(zip(tables, titles), parseTable),
-    observations:  numberedObservations(obs)
-   }
+  //TODO: observations field
+  return flatMap(zip(tables, titles), parseTable)
+
 
   function tagIndexes(e) {
     var start = all.index(e)
@@ -141,10 +139,12 @@ function parsePage(window) {
     if(tr.textContent.trimAll() == "") return;
     var cells = $("td", tr).toArray()
 
+    var href = $('a', cells[1]).attr('href')
+
     var h = {
       infestant     : cells[0].textContent,
       substance     : cells[1].textContent,
-      substanceURL  : $(cells[1]).attr('href') || '',
+      substanceURL  : href == '' ? '' : relativeURL(url, href),
       formulation   : cells[2].textContent,
       dosage        : cells[3].textContent,
       days          : cells[4].textContent,
