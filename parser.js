@@ -1,19 +1,21 @@
 
-var fs      = require("fs")
-var util    = require("util")
-var jsdom   = require("jsdom")
-var extend  = require("extend")
-var Promise = require("bluebird")
-var escape  = require("escape-string-regexp")
+var fs        = require("fs")
+var util      = require("util")
+var jsdom     = require("jsdom")
+var extend    = require("extend")
+var Promise   = require("bluebird")
+var escape    = require("escape-string-regexp")
+var innerText = require('text-content')
+
 
 Promise.promisifyAll(fs)
 Promise.promisifyAll(jsdom)
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
-//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
+var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
 //var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/actin%C3%ADdea%20(kiwi).htm"
-var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
+//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
@@ -83,6 +85,16 @@ function parseGroup(window) {
 function textBetween($, start, stop) {
   var between = slice($("*"), start, stop)
   var texts = flatMap(between, e => filter(e.childNodes, c => c.nodeType == NODE_TYPES.TEXT_NODE))
+  var i = 0;
+  var sep = "\n::::\n"
+  //map(texts, t => log(i++ + sep + innerText(t) + sep + t.textContent + sep + $(t).text()))
+  map(texts, t => log(t.textContent))
+  log(sep)
+  log($(texts).text())
+  log(sep)
+  log(sep)
+  log(sep)
+
   return $(texts).text()
 }
 
