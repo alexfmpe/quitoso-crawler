@@ -1,6 +1,8 @@
 
 var fs      = require("fs")
+var util    = require("util")
 var jsdom   = require("jsdom")
+var extend  = require("extend")
 var Promise = require("bluebird")
 var escape  = require("escape-string-regexp")
 
@@ -18,6 +20,8 @@ var config  = { encoding: "binary" }
 
 var log = console.log
 var err = console.error
+var show = util.inspect
+var update = data => target => extend(target, data)
 
 var MESSAGES = {
   loadError       : "Error when loading page and/or jQuery",
@@ -31,10 +35,10 @@ var NODE_TYPES  = {
 main()
 
 function main() {
-  if(true)
-    fetch(group).then(parseGroup)//.then(log)
+  if(!true)
+    fetch(group).then(parseGroup).then(log)
   else
-    fetch(page).then(parsePage)//.then(log)
+    fetch(page).then(parsePage).then(log)
 }
 
 function fetch(url) {
@@ -57,7 +61,8 @@ function relativeURL(origin, path) {
 function parseGroup(window) {
   var $ = window.$
   var rows = $("tr")
-  return Promise.all(flatMap(rows, parseRow))
+  var rs = slice(rows, 0, 5)
+  return Promise.all(flatMap(rs, parseRow))
 
   function parseRow(tr) {
     var cells = $("td", tr)
@@ -97,9 +102,9 @@ function parsePage(window) {
 
   if(tables.length > 1)     note(MESSAGES.multipleTables, url)
   if(tables.length == 0)    note(MESSAGES.zeroTables,     url)
+
   return {
-    url:           url,
-    entries:       map(zip(tables, titles), parseTable),
+    entries:       flatMap(zip(tables, titles), parseTable),
     observations:  numberedObservations(obs)
    }
 
@@ -129,36 +134,37 @@ function parsePage(window) {
 
   function parseTable(table, title) {
     var rows = prune(map($("tr", table).next(), parseRow))
-    var ret = map(rows, r => title + "\t" + r.toCSV())
-    return ret
+    return map(rows, update({culture: title}))
   }
 
   function parseRow(tr) {
     if(tr.textContent.trimAll() == "") return;
-    var cells = $("td", tr)
+    var cells = $("td", tr).toArray()
 
-    var h = Horticulture.factoryApply(cells.toArray())
+    var h = {
+      infestant     : cells[0].textContent,
+      substance     : cells[1].textContent,
+      substanceURL  : $(cells[1]).attr('href') || '',
+      formulation   : cells[2].textContent,
+      dosage        : cells[3].textContent,
+      days          : cells[4].textContent,
+      observations  : $(cells[5]).textContent || '',
+    }
+
+    h.infestant     = h.infestant.trimAll()
+    h.substance     = h.substance.trimAll()
+    h.formulation   = h.formulation.trimAll()
+    h.dosage        = h.dosage.trimAll()
+    h.days          = h.days.trimAll()
+    h.observations  = h.observations.trimAll()
+
     previous = previous || h
-    if("" == h.infestant.textContent.trim()) h.infestant = previous.infestant
-    if("" == h.substance.textContent.trim()) h.substance = previous.substance
+    h.infestant = h.infestant || previous.infestant
+    h.substance = h.substance || previous.substance
     previous = h
 
     return h
   }
-}
-
-function Horticulture(infestant, substance, formulation, dosage, days, notes) {
-  this.infestant = infestant
-  this.substance = substance
-  this.formulation = formulation
-  this.dosage = dosage
-  this.days = days
-  this.notes = notes
-}
-Horticulture.prototype.columns = function() { return Object.keys(this) }
-Horticulture.prototype.toCSV = function() {
-  var values = prune(map(this.columns(), c => this[c]))
-  return map(values, v => v.textContent.trimAll()).join(",")
 }
 
 //kinda should not slice because V8 is a crybaby
