@@ -8,7 +8,7 @@ var config  = { encoding: "binary" }
 
 var log = console.log
 
-var ERROR = {
+var MESSAGES = {
   loadError       : "Error when loading page and/or jQuery",
   multipleTables  : "Multiple tables",
   zeroTables      : "No tables found"
@@ -43,7 +43,7 @@ function relativeURL(origin, path) {
 
 function parseGroup(err, window) {
   var $ = window.$
-  if(err) GTFO(ERROR.loadError, err)
+  if(err) GTFO(MESSAGES.loadError, err)
   map($("tr"), parseRow)
 
   function parseRow(tr) {
@@ -64,7 +64,7 @@ function textBetween($, start, stop) {
 }
 
 function parsePage(err, window) {
-  if(err) GTFO(ERROR.loadError, err)
+  if(err) GTFO(MESSAGES.loadError, err)
 
   var $           = window.$
   var url         = window.location.href
@@ -82,8 +82,8 @@ function parsePage(err, window) {
   log(url)
   log(numberedObservations(obs))
 
-  if(tables.length > 1)     note(ERROR.multipleTables, url)
-  if(tables.length == 0)    note(ERROR.zeroTables,     url)
+  if(tables.length > 1)     note(MESSAGES.multipleTables, url)
+  if(tables.length == 0)    note(MESSAGES.zeroTables,     url)
   map(zip(tables, titles), parseTable)
 
   function tagIndexes(e) {
@@ -98,12 +98,13 @@ function parsePage(err, window) {
 
   function parseObservations() {
     var everything  = window.document.body.textContent
-    var start       = "Observações"
+    var start       = "Observações:"
     var end         = "Voltar a Guia de Condições"
     var anything    = "[^]*"
-    var flags       = "gi"
-    var regexp      = new RegExp(start + anything + end, flags)
-    var obs         = everything.match(regexp)[0]
+    var flags       = "i"
+    var capture     = "(" + anything + ")"
+    var regexp      = new RegExp(start + capture + end, flags)
+    var obs         = everything.match(regexp)[1]
     var list        = slice(obs.split(/^\d+[.]/gim), 1)
     return map(list, l => l.trimAll())
   }
