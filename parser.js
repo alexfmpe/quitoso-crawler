@@ -1,12 +1,23 @@
-var jsdom = require("jsdom")
+
+var fs      = require("fs")
+var jsdom   = require("jsdom")
+var Promise = require("bluebird")
+var escape  = require("escape-string-regexp")
+
+Promise.promisifyAll(fs)
+Promise.promisifyAll(jsdom)
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
-var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/videira.htm"
+//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/agriao.htm"
+//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
+//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/actin%C3%ADdea%20(kiwi).htm"
+var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/abobora.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
 var log = console.log
+var err = console.error
 
 var MESSAGES = {
   loadError       : "Error when loading page and/or jQuery",
@@ -20,16 +31,18 @@ var NODE_TYPES  = {
 main()
 
 function main() {
-  //fetch(group, parseGroup)
-  fetch(page, parsePage)
+  if(true)
+    fetch(group).then(parseGroup)//.then(log)
+  else
+    fetch(page).then(parsePage)//.then(log)
 }
 
-function fetch(url, callback) {
-  jsdom.env(url, scripts, config, callback)
+function fetch(url) {
+  return jsdom.envAsync(url, scripts, config)
 }
 
 function note(e, cause) {
-  log("NOTE: " + e + "\n" + cause)
+  err("NOTE: " + e + "\n @ " + cause + "\n")
 }
 function GTFO(e, cause) {
   log("GTFO " + e + "\n" + cause)
@@ -41,19 +54,25 @@ function relativeURL(origin, path) {
   return parent + path
 }
 
-function parseGroup(err, window) {
+function parseGroup(window) {
   var $ = window.$
-  if(err) GTFO(MESSAGES.loadError, err)
-  map($("tr"), parseRow)
+  var rows = $("tr")
+  return Promise.all(flatMap(rows, parseRow))
 
   function parseRow(tr) {
-    var rows = $("td", tr)
-    var [horticulture, date] = rows.toArray()
-    if(! /\w+/.test(horticulture.textContent)) return;
+    var cells = $("td", tr)
+
+    var [horticulture, date] = cells.toArray()
+    if(! /\w+/.test(horticulture.textContent)) return [];
 
     var href = $('a', horticulture).attr("href")
     var url = relativeURL(window.location.href, href)
-    fetch(url, parsePage)
+
+    function donegoofed(e) {
+      note(e, url)
+    }
+
+    return [fetch(url).then(parsePage).catch(donegoofed)]
   }
 }
 
@@ -63,9 +82,7 @@ function textBetween($, start, stop) {
   return $(texts).text()
 }
 
-function parsePage(err, window) {
-  if(err) GTFO(MESSAGES.loadError, err)
-
+function parsePage(window) {
   var $           = window.$
   var url         = window.location.href
   var all         = $('*')
@@ -78,13 +95,13 @@ function parsePage(err, window) {
   var titles = map(intervals, i => textBetween($, i[0], i[1]).trimAll())
   var obs = parseObservations()
 
-  log(titles)
-  log(url)
-  log(numberedObservations(obs))
-
   if(tables.length > 1)     note(MESSAGES.multipleTables, url)
   if(tables.length == 0)    note(MESSAGES.zeroTables,     url)
-  map(zip(tables, titles), parseTable)
+  return {
+    url:           url,
+    entries:       map(zip(tables, titles), parseTable),
+    observations:  numberedObservations(obs)
+   }
 
   function tagIndexes(e) {
     var start = all.index(e)
@@ -99,19 +116,21 @@ function parsePage(err, window) {
   function parseObservations() {
     var everything  = window.document.body.textContent
     var start       = "Observações:"
-    var end         = "Voltar a Guia de Condições"
+    var end         = escape(last($('a')).textContent)
     var anything    = "[^]*"
     var flags       = "i"
     var capture     = "(" + anything + ")"
     var regexp      = new RegExp(start + capture + end, flags)
-    var obs         = everything.match(regexp)[1]
+    var match       = everything.match(regexp)
+    var obs         = match == null ? "" : match[1]
     var list        = slice(obs.split(/^\d+[.]/gim), 1)
     return map(list, l => l.trimAll())
   }
 
   function parseTable(table, title) {
     var rows = prune(map($("tr", table).next(), parseRow))
-    map(rows, r => log(title + "\t" + r.toCSV()))
+    var ret = map(rows, r => title + "\t" + r.toCSV())
+    return ret
   }
 
   function parseRow(tr) {
@@ -207,4 +226,9 @@ function filter(xs, p) {
 
 function concat() {
   return Array.prototype.concat.apply([], map(arguments, id))
+}
+
+function last(xs) {
+  var arr = map(xs, id)
+  return arr[arr.length - 1]
 }

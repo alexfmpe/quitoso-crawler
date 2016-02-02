@@ -2,4 +2,4 @@ all:
 	node --harmony-destructuring parser.js
 
 deps:
-	npm install jsdom
+	npm install jsdom bluebird
