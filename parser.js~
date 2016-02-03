@@ -18,7 +18,8 @@ var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalida
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
-var production = !true
+var log = console.log
+var err = console.error
 var show = util.inspect
 var update = data => target => extend(target, data)
 
@@ -31,39 +32,22 @@ var NODE_TYPES  = {
   TEXT_NODE     : 3
 }
 
-var output = console.log
-
 main()
 
-
 function main() {
-  debugWarning()
-  if(!true) fetch(group).then(parseGroup).then(output).then(debugWarning)
-  else      fetch(page).then(parsePage).then(output).then(debugWarning)
-}
-
-function debugWarning() {
-  log("===============================")
-  log("WARNING: NOT IN PRODUCTION MODE")
-  log("===============================")
+  if(!true)
+    fetch(group).then(parseGroup).then(log)
+  else
+    fetch(page).then(parsePage).then(log)
 }
 
 function fetch(url) {
   return jsdom.envAsync(url, scripts, config)
 }
 
-
-
-function log(x) {
-  if(!production) output(x)
-}
 function note(e, cause) {
-  console.error("NOTE: " + e + "\n @ " + cause + "\n")
+  err("NOTE: " + e + "\n @ " + cause + "\n")
 }
-
-
-
-
 function GTFO(e, cause) {
   log("GTFO " + e + "\n" + cause)
   process.exit(1)
@@ -77,6 +61,7 @@ function relativeURL(origin, path) {
 function parseGroup(window) {
   var $ = window.$
   var rows = $("tr")
+  var rs = slice(rows, 0, 5)
   return Promise.all(flatMap(rows, parseRow))
 
   function parseRow(tr) {
@@ -97,10 +82,18 @@ function parseGroup(window) {
 }
 
 function textBetween($, start, stop) {
-  var isTextNode = n => n.nodeType == NODE_TYPES.TEXT_NODE
-  var isReallyText = n => isTextNode(n) && !n.textContent.trim().startsWith('<!--')
   var between = slice($("*"), start, stop)
-  var texts = flatMap(between, e => filter(e.childNodes, isReallyText))
+  var texts = flatMap(between, e => filter(e.childNodes, c => c.nodeType == NODE_TYPES.TEXT_NODE))
+  var i = 0;
+  var sep = "\n::::\n"
+  //map(texts, t => log(i++ + sep + innerText(t) + sep + t.textContent + sep + $(t).text()))
+  map(texts, t => log(t.textContent))
+  log(sep)
+  log($(texts).text())
+  log(sep)
+  log(sep)
+  log(sep)
+
   return $(texts).text()
 }
 
