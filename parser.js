@@ -19,7 +19,7 @@ var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
 var production = !true
-var singlePage = !true
+var singlePage = true
 
 var show = util.inspect
 var update = data => target => extend(target, data)
@@ -165,7 +165,7 @@ function parsePage(window) {
     var h = {
       infestant     : infestant,
       substance     : substance,
-      substanceURL  : href == '' ? '' : relativeURL(url, href),
+      substanceURL  : href == undefined ? '' : relativeURL(url, href),
       formulation   : formulation,
       dosage        : dosage,
       days          : days,
@@ -175,8 +175,9 @@ function parsePage(window) {
     map(columns, c => h[c] = h[c].textContent.trimAll())
 
     previous = previous || h
-    h.infestant = h.infestant || previous.infestant
-    h.substance = h.substance || previous.substance
+    h.infestant    = h.infestant    || previous.infestant
+    h.substance    = h.substance    || previous.substance
+    h.substanceURL = h.substanceURL || previous.substanceURL
     previous = h
     map(columns, addObservations)
 
