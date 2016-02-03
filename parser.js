@@ -19,6 +19,8 @@ var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
 var production = !true
+var singlePage = !true
+
 var show = util.inspect
 var update = data => target => extend(target, data)
 
@@ -32,14 +34,15 @@ var NODE_TYPES  = {
 }
 
 var output = console.log
+var columns = 'infestant substance formulation dosage days'.split(/\s+/)
 
 main()
 
 
 function main() {
   debugWarning()
-  if(!true) fetch(group).then(parseGroup).then(output).then(debugWarning)
-  else      fetch(page).then(parsePage).then(output).then(debugWarning)
+  if(!singlePage) fetch(group).then(parseGroup).then(output).then(debugWarning)
+  else            fetch(page).then(parsePage).then(output).then(debugWarning)
 }
 
 function debugWarning() {
@@ -115,14 +118,12 @@ function parsePage(window) {
   var [startIndexes, endIndexes] = unzip(map(tables, tagIndexes))
   var intervals = zip(concat([firstIndex], endIndexes), startIndexes)
   var titles = map(intervals, i => textBetween($, i[0], i[1]).trimAll())
-  var obs = numberedObservations(parseObservations())
+  var obs = parseObservations()
 
   if(tables.length > 1)     note(MESSAGES.multipleTables, url)
   if(tables.length == 0)    note(MESSAGES.zeroTables,     url)
 
-  //TODO: observations field
   return flatMap(zip(tables, titles), parseTable)
-
 
   function tagIndexes(e) {
     var start = all.index(e)
@@ -131,7 +132,7 @@ function parsePage(window) {
   }
 
   function numberedObservations(xs) {
-    return xs.map((x,i) => "(" + (i+1) + ") " + x).join('\n')
+    return xs.map((x,i) => "(" + (i+1) + ") " + x)
   }
 
   function parseObservations() {
@@ -145,7 +146,7 @@ function parsePage(window) {
     var match       = everything.match(regexp)
     var obs         = match == null ? "" : match[1]
     var list        = slice(obs.split(/^\d+[.]/gim), 1)
-    return map(list, l => l.trimAll())
+    return list.map((x,i) => "(" + (i+1) + ") " + x.trimAll())
   }
 
   function parseTable(table, title) {
@@ -158,28 +159,31 @@ function parsePage(window) {
     var cells = $("td", tr).toArray()
 
     var href = $('a', cells[1]).attr('href')
+    var [infestant, substance, formulation, dosage, days, observations] = cells
 
     var h = {
-      infestant     : cells[0].textContent,
-      substance     : cells[1].textContent,
+      infestant     : infestant,
+      substance     : substance,
       substanceURL  : href == '' ? '' : relativeURL(url, href),
-      formulation   : cells[2].textContent,
-      dosage        : cells[3].textContent,
-      days          : cells[4].textContent,
-      observations  : $(cells[5]).textContent || '',
+      formulation   : formulation,
+      dosage        : dosage,
+      days          : days,
+      observations  : observations || '',
     }
 
-    h.infestant     = h.infestant.trimAll()
-    h.substance     = h.substance.trimAll()
-    h.formulation   = h.formulation.trimAll()
-    h.dosage        = h.dosage.trimAll()
-    h.days          = h.days.trimAll()
-    h.observations  = h.observations.trimAll()
+    map(columns, c => h[c] = h[c].textContent.trimAll())
 
     previous = previous || h
     h.infestant = h.infestant || previous.infestant
     h.substance = h.substance || previous.substance
     previous = h
+    map(columns, addObservations)
+
+    function addObservations(column) {
+        var matches = h[column].match(/\(\d+\)/g) || []
+        var numbers = matches.map(s => s.slice(1, -1)).map(Number)
+        map(numbers, n => h.observations += obs[n-1])
+    }
 
     return h
   }
