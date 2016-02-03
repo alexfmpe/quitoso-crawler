@@ -7,11 +7,12 @@ var Promise   = require("bluebird")
 var escape    = require("escape-string-regexp")
 var innerText = require('text-content')
 
-
 Promise.promisifyAll(fs)
 Promise.promisifyAll(jsdom)
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
+//var roots = ["http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_prod_armz.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_tratsem.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_outr_tratm.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_atractivos.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm"]
+var prefix  = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
 //var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
 var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
@@ -41,8 +42,7 @@ main()
 
 function main() {
   debugWarning()
-  if(!singlePage) fetch(group).then(parseGroup).then(output).then(debugWarning)
-  else            fetch(page).then(parsePage).then(output).then(debugWarning)
+  fetch(page).then(parsePage).then(changeNames).then(output).then(debugWarning)
 }
 
 function debugWarning() {
@@ -55,7 +55,20 @@ function fetch(url) {
   return jsdom.envAsync(url, scripts, config)
 }
 
-
+function changeNames(horticultures) {
+  return map(horticultures, function(h) { return {
+    familia_aplicacao : h.family,
+    aplicacao         : h.aplication,
+    cultura           : h.culture,
+    praga_doenca      : h.infestant,
+    substancia        : h.substance,
+    substancia_link   : h.substanceURL,
+    formulacao        : h.formulation,
+    dose              : h.dosage,
+    int_seguranca     : h.days,
+    observacoes       : h.observations
+  }})
+}
 
 function log(x) {
   if(!production) output(x)
@@ -80,7 +93,6 @@ function relativeURL(origin, path) {
 function parseGroup(window) {
   var $ = window.$
   var rows = $("tr")
-  //rows = slice(rows, 0, 5)
   return Promise.all(map(rows, parseRow)).then(flatten)
 
   function parseRow(tr) {
