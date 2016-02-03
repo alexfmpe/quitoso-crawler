@@ -19,6 +19,8 @@ var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalida
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
+var errFile    = 'fito.txt'
+var outputFile = 'fito.json'
 var production = !true
 var singlePage = true
 
@@ -33,22 +35,15 @@ var MESSAGES = {
 var NODE_TYPES  = {
   TEXT_NODE     : 3
 }
-
-var output = console.log
 var columns = 'infestant substance formulation dosage days'.split(/\s+/)
 
 main()
 
-
 function main() {
+  map([errFile, outputFile], clear)
   debugWarning()
-  fetch(page).then(parsePage).then(changeNames).then(output).then(debugWarning)
-}
-
-function debugWarning() {
-  log("===============================")
-  log("WARNING: NOT IN PRODUCTION MODE")
-  log("===============================")
+  fetch(group).then(parseGroup).then(changeNames).then(output)
+  //fetch(page).then(parsePage).then(changeNames).then(output)
 }
 
 function fetch(url) {
@@ -70,15 +65,28 @@ function changeNames(horticultures) {
   }})
 }
 
-function log(x) {
-  if(!production) output(x)
-}
-function note(e, cause) {
-  console.error("NOTE: " + e + "\n @ " + cause + "\n")
+function clear(file) {
+  fs.writeFileSync(file, '')
 }
 
+function output(json) {
+  return fs.appendFileSync(outputFile, show(json))
+}
 
+function log(e, cause) {
+  var text = e + (cause ? "\n @ " + cause : '') + "\n"
+  fs.appendFileSync(errFile, text)
+}
 
+function debug(x) {
+  if(!production) log(x)
+}
+
+function debugWarning() {
+  debug("===============================")
+  debug("WARNING: NOT IN PRODUCTION MODE")
+  debug("===============================")
+}
 
 function GTFO(e, cause) {
   log("GTFO " + e + "\n" + cause)
@@ -105,7 +113,7 @@ function parseGroup(window) {
     var url = relativeURL(window.location.href, href)
 
     function donegoofed(e) {
-      note(e, url)
+      log(e, url)
     }
 
     return fetch(url).then(parsePage).catch(donegoofed)
@@ -133,8 +141,8 @@ function parsePage(window) {
   var titles = map(intervals, i => textBetween($, i[0], i[1]).trimAll())
   var obs = parseObservations()
 
-  if(tables.length > 1)     note(MESSAGES.multipleTables, url)
-  if(tables.length == 0)    note(MESSAGES.zeroTables,     url)
+  if(tables.length > 1)     log(MESSAGES.multipleTables, url)
+  if(tables.length == 0)    log(MESSAGES.zeroTables,     url)
 
   return flatMap(zip(tables, titles), parseTable)
 
