@@ -83,18 +83,10 @@ function parseGroup(window) {
 }
 
 function textBetween($, start, stop) {
+  var isTextNode = n => n.nodeType == NODE_TYPES.TEXT_NODE
+  var isReallyText = n => isTextNode(n) && !n.textContent.trim().startsWith('<!--')
   var between = slice($("*"), start, stop)
-  var texts = flatMap(between, e => filter(e.childNodes, c => c.nodeType == NODE_TYPES.TEXT_NODE))
-  var i = 0;
-  var sep = "\n::::\n"
-  //map(texts, t => log(i++ + sep + innerText(t) + sep + t.textContent + sep + $(t).text()))
-  map(texts, t => log(t.textContent))
-  log(sep)
-  log($(texts).text())
-  log(sep)
-  log(sep)
-  log(sep)
-
+  var texts = flatMap(between, e => filter(e.childNodes, isReallyText))
   return $(texts).text()
 }
 
