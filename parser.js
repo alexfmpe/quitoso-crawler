@@ -80,13 +80,14 @@ function relativeURL(origin, path) {
 function parseGroup(window) {
   var $ = window.$
   var rows = $("tr")
-  return Promise.all(flatMap(rows, parseRow))
+  //rows = slice(rows, 0, 5)
+  return Promise.all(map(rows, parseRow)).then(flatten)
 
   function parseRow(tr) {
     var cells = $("td", tr)
 
     var [horticulture, date] = cells.toArray()
-    if(! /\w+/.test(horticulture.textContent)) return [];
+    if(! /\w+/.test(horticulture.textContent)) return purePromise([]);
 
     var href = $('a', horticulture).attr("href")
     var url = relativeURL(window.location.href, href)
@@ -95,7 +96,7 @@ function parseGroup(window) {
       note(e, url)
     }
 
-    return [fetch(url).then(parsePage).catch(donegoofed)]
+    return fetch(url).then(parsePage).catch(donegoofed)
   }
 }
 
@@ -236,6 +237,10 @@ function map(xs, f) {
   return map_(f_)
 }
 
+function flatten(xxs) {
+  return flatMap(xxs, id)
+}
+
 function flatMap(xs, f) {
   return Array.prototype.concat.apply([], map(xs, f))
 }
@@ -259,4 +264,8 @@ function concat() {
 function last(xs) {
   var arr = map(xs, id)
   return arr[arr.length - 1]
+}
+
+function purePromise(x) {
+  return new Promise((resolve, request) => resolve(x))
 }
