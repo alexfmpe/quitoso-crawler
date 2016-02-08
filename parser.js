@@ -73,7 +73,7 @@ function main() {
 function parseRoot(root) {
   var newFields = {
     family: root.family,
-    aplication: root.application
+    application: root.application
   }
 
   return fetch(root.url).then(parseGroup).then(group => map(group, update(newFields)))
