@@ -29,7 +29,8 @@ var roots = [
 
 var prefix  = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
-var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
+//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
+var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/trigo1.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
@@ -38,7 +39,7 @@ var outputFile = 'fito.json'
 var production = !true
 var singlePage = true
 var total_delay = 0
-var fetch_delay = 1000
+var fetch_delay = 2000
 
 var show = util.inspect
 var update = data => target => extend(target, data)
@@ -52,18 +53,21 @@ var NODE_TYPES  = {
   TEXT_NODE     : 3
 }
 var columns = 'infestant substance formulation dosage days'.split(/\s+/)
+var isTextNode = n => n.nodeType == NODE_TYPES.TEXT_NODE
+var isReallyText = n => isTextNode(n) && !n.textContent.trim().startsWith('<!--')
+
 
 main()
 
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-
+/*
   var groups = Promise.all(map(roots, r => fetch(r).then(parseGroup)))
   groups.then(flatten).then(output)
-
+*/
   //fetch(group).then(parseGroup).then(id).then(output)
-  //fetch(page).then(parsePage).then(changeNames).then(output)
+  fetch(page).then(parsePage).then(changeNames).then(output)
 }
 
 
@@ -131,6 +135,8 @@ function relativeURL(origin, path) {
 
 function parseGroup(window) {
   var $ = window.$
+  var title = $('*').filter(isReallyText)[0]
+  var family
   var rows = $("tr")
   return Promise.all(map(rows, parseRow)).then(flatten)
 
@@ -152,8 +158,6 @@ function parseGroup(window) {
 }
 
 function textBetween($, start, stop) {
-  var isTextNode = n => n.nodeType == NODE_TYPES.TEXT_NODE
-  var isReallyText = n => isTextNode(n) && !n.textContent.trim().startsWith('<!--')
   var between = slice($("*"), start, stop)
   var texts = flatMap(between, e => filter(e.childNodes, isReallyText))
   return $(texts).text()
