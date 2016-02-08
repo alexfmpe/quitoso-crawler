@@ -220,7 +220,7 @@ function parsePage(window) {
       formulation   : formulation,
       dosage        : dosage,
       days          : days,
-      observations  : observations || '',
+      observations  : observations == undefined ? '' : observations.textContent.trimAll(),
     }
 
     map(columns, c => h[c] = h[c].textContent.trimAll())
