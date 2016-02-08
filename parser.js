@@ -12,25 +12,28 @@ Promise.promisifyAll(jsdom)
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_prod_armz.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_tratsem.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_outr_tratm.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_atractivos.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm",
-  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm",
-]
+  ['INSECTICIDAS E FUNGICIDAS', 'Culturas',                           "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"    ],
+  ['INSECTICIDAS E FUNGICIDAS', 'Florestais',                         "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm"     ],
+  ['INSECTICIDAS E FUNGICIDAS', 'Ornamentais',                        "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm"       ],
+  ['INSECTICIDAS E FUNGICIDAS', 'Tratamento de Produtos Armazenados', "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_prod_armz.htm"   ],
+  ['INSECTICIDAS E FUNGICIDAS', 'Tratamento de Sementes',             "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_tratsem.htm"     ],
+  ['INSECTICIDAS E FUNGICIDAS', 'Outros Tratamentos',                 "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_outr_tratm.htm"  ],
+  ['Atrativos',                 '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_atractivos.htm"       ],
+  ['Moluscicidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm"     ],
+  ['Nematodicidas ',            '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm"    ],
+  ['Repulsivos',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm"       ],
+  ['Rodenticidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm"     ],
+  ['HERBICIDAS',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"         ],
+//['ignore',                    '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm"          ],
+].map(function (row) {
+  var [a, f, u] = row
+  return {
+    application:  a,
+    family:       f,
+    url:          u,
+  }
+})
 
-var prefix  = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/"
-var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
-//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
-var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/trigo1.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
 
@@ -62,14 +65,19 @@ main()
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-/*
-  var groups = Promise.all(map(roots, r => fetch(r).then(parseGroup)))
-  groups.then(flatten).then(output)
-*/
-  //fetch(group).then(parseGroup).then(id).then(output)
-  fetch(page).then(parsePage).then(changeNames).then(output)
+
+  var groups = Promise.all(map(roots, parseRoot))
+  groups.then(flatten).then(changeNames).then(output)
 }
 
+function parseRoot(root) {
+  var newFields = {
+    family: root.family,
+    aplication: root.application
+  }
+
+  return fetch(root.url).then(parseGroup).then(group => map(group, update(newFields)))
+}
 
 function fetch(url) {
   total_delay += fetch_delay
@@ -88,7 +96,7 @@ function fetch(url) {
 function changeNames(horticultures) {
   return map(horticultures, function(h) { return {
     familia_aplicacao : h.family,
-    aplicacao         : h.aplication,
+    aplicacao         : h.application,
     cultura           : h.culture,
     praga_doenca      : h.infestant,
     substancia        : h.substance,
