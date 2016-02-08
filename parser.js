@@ -11,10 +11,24 @@ Promise.promisifyAll(fs)
 Promise.promisifyAll(jsdom)
 
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
-//var roots = ["http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_prod_armz.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_tratsem.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_outr_tratm.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_atractivos.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm", "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm"]
+var roots = [
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_prod_armz.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_tratsem.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_outr_tratm.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_atractivos.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm",
+  "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm",
+]
+
 var prefix  = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/"
 var group   = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"
-//var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/florestas.htm"
 var page    = "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/../finalidades_guia/Insec&Fung/Culturas/milho.htm"
 var scripts = ["http://code.jquery.com/jquery.js"]
 var config  = { encoding: "binary" }
@@ -23,6 +37,8 @@ var errFile    = 'fito.txt'
 var outputFile = 'fito.json'
 var production = !true
 var singlePage = true
+var total_delay = 0
+var fetch_delay = 1000
 
 var show = util.inspect
 var update = data => target => extend(target, data)
@@ -42,12 +58,27 @@ main()
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-  fetch(group).then(parseGroup).then(changeNames).then(output)
+
+  var groups = Promise.all(map(roots, r => fetch(r).then(parseGroup)))
+  groups.then(flatten).then(output)
+
+  //fetch(group).then(parseGroup).then(id).then(output)
   //fetch(page).then(parsePage).then(changeNames).then(output)
 }
 
+
 function fetch(url) {
-  return jsdom.envAsync(url, scripts, config)
+  total_delay += fetch_delay
+  var my_delay = total_delay
+  var msg = (my_delay / 1000) + 's\t@' + url
+
+  console.log('waiting for ' + msg)
+  var d = delay(my_delay)
+
+  return d.then(function() {
+    console.log('waited for ' + msg)
+    return jsdom.envAsync(url, scripts, config)
+    })
 }
 
 function changeNames(horticultures) {
@@ -78,7 +109,7 @@ function log(e, cause) {
   fs.appendFileSync(errFile, text)
 }
 
-function debug(x) {
+function debug(x) {
   if(!production) log(x)
 }
 
@@ -289,4 +320,12 @@ function last(xs) {
 
 function purePromise(x) {
   return new Promise((resolve, request) => resolve(x))
+}
+
+function delay(ms) {
+    var deferred = Promise.pending();
+    setTimeout(function(){
+	    deferred.resolve();
+	}, ms);
+    return deferred.promise;
 }
