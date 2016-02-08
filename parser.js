@@ -113,7 +113,7 @@ function clear(file) {
 }
 
 function output(json) {
-  return fs.appendFileSync(outputFile, show(json))
+  return fs.appendFileSync(outputFile, show(json) + '\n')
 }
 
 function log(e, cause) {
