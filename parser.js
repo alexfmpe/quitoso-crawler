@@ -10,8 +10,10 @@ var innerText = require('text-content')
 Promise.promisifyAll(fs)
 Promise.promisifyAll(jsdom)
 
+var page   = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
 var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
+  /*
   ['INSECTICIDAS E FUNGICIDAS', 'Culturas',                           "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"    ],
   ['INSECTICIDAS E FUNGICIDAS', 'Florestais',                         "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm"     ],
   ['INSECTICIDAS E FUNGICIDAS', 'Ornamentais',                        "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm"       ],
@@ -19,12 +21,15 @@ var roots = [
   ['INSECTICIDAS E FUNGICIDAS', 'Tratamento de Sementes',             "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_tratsem.htm"     ],
   ['INSECTICIDAS E FUNGICIDAS', 'Outros Tratamentos',                 "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_outr_tratm.htm"  ],
   ['Atrativos',                 '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_atractivos.htm"       ],
+  */
   ['Moluscicidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm"     ],
   ['Nematodicidas ',            '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm"    ],
+  /*
   ['Repulsivos',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm"       ],
   ['Rodenticidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm"     ],
   ['HERBICIDAS',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"         ],
 //['ignore',                    '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm"          ],
+  */
 ].map(function (row) {
   var [a, f, u] = row
   return {
@@ -42,7 +47,7 @@ var outputFile = 'fito.json'
 var production = !true
 var singlePage = true
 var total_delay = 0
-var fetch_delay = 2000
+var fetch_delay = 1000
 
 var show = util.inspect
 var update = data => target => extend(target, data)
@@ -65,9 +70,12 @@ main()
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-
-  var groups = Promise.all(map(roots, parseRoot))
-  groups.then(flatten).then(changeNames).then(output)
+/*
+  var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
+  fetch(group).then(parseGroup).then(id).then(output)
+*/
+  //Promise.all(map(roots, parseRoot)).then(flatten).then(changeNames).then(output)
+  fetch(page).then(parsePage).then(output)
 }
 
 function parseRoot(root) {
@@ -183,6 +191,7 @@ function parsePage(window) {
   var intervals = zip(concat([firstIndex], endIndexes), startIndexes)
   var titles = map(intervals, i => textBetween($, i[0], i[1]).trimAll())
   var obs = parseObservations()
+  console.log(obs)
 
   if(tables.length > 1)     log(MESSAGES.multipleTables, url)
   if(tables.length == 0)    log(MESSAGES.zeroTables,     url)
@@ -210,6 +219,10 @@ function parsePage(window) {
     var match       = everything.match(regexp)
     var obs         = match == null ? "" : match[1]
     var list        = slice(obs.split(/^\d+[.]/gim), 1)
+
+    if(list.length == 0)
+        list = map($('ol li'), e => e.textContent)
+    console.log(list)
     return list.map((x,i) => "(" + (i+1) + ") " + x.trimAll())
   }
 
