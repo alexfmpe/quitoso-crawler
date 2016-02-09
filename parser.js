@@ -10,11 +10,12 @@ var innerText = require('text-content')
 Promise.promisifyAll(fs)
 Promise.promisifyAll(jsdom)
 
+var startTime = Date.now()
 var page  = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
 var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
 var root  = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
-  /*
+
   ['INSECTICIDAS E FUNGICIDAS', 'Culturas',                           "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"    ],
   ['INSECTICIDAS E FUNGICIDAS', 'Florestais',                         "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm"     ],
   ['INSECTICIDAS E FUNGICIDAS', 'Ornamentais',                        "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm"       ],
@@ -22,15 +23,14 @@ var roots = [
   ['INSECTICIDAS E FUNGICIDAS', 'Tratamento de Sementes',             "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_tratsem.htm"     ],
   ['INSECTICIDAS E FUNGICIDAS', 'Outros Tratamentos',                 "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_outr_tratm.htm"  ],
   ['Atrativos',                 '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_atractivos.htm"       ],
-  */
   ['Moluscicidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm"     ],
   ['Nematodicidas ',            '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm"    ],
-  /*
   ['Repulsivos',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm"       ],
+
   ['Rodenticidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm"     ],
   ['HERBICIDAS',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"         ],
 //['ignore',                    '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm"          ],
-  */
+
 ].map(function (row) {
   var [a, f, u] = row
   return {
@@ -48,7 +48,8 @@ var outputFile = 'fito.json'
 var production = !true
 var singlePage = true
 var total_delay = 0
-var fetch_delay = 1000
+var start_delay = 500
+var incr_delay  = 5000
 
 var show = util.inspect
 var update = data => target => extend(target, data)
@@ -61,6 +62,8 @@ var MESSAGES = {
 var NODE_TYPES  = {
   TEXT_NODE     : 3
 }
+var counts = {}
+
 var columns = 'infestant substance formulation dosage days'.split(/\s+/)
 var isTextNode = n => n.nodeType == NODE_TYPES.TEXT_NODE
 var isReallyText = n => isTextNode(n) && !n.textContent.trim().startsWith('<!--')
@@ -71,11 +74,14 @@ main()
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-
-  //Promise.all(map(roots, parseRoot)).then(flatten).then(changeNames).then(output)
-  fetch(group).then(parseGroup).then(id).then(output)
+  Promise.all(map(roots, parseRoot)).then(flatten).then(changeNames).then(output)
+  //fetch(group).then(parseGroup).then(id).then(output)
   //fetch(page).then(parsePage).then(output)
 }
+
+//function fetchRoot()    { fetch(root).then(parseRoot).catch(fetchRoot) }
+//function fetchGroup()   { fetch(root).then(parseRoot).catch(fetchRoot) }
+function fetchPage(url) { return fetch(url).then(parsePage).catch(() => fetchPage(url)) }
 
 function parseRoot(root) {
   var newFields = {
@@ -87,16 +93,19 @@ function parseRoot(root) {
 }
 
 function fetch(url) {
-  total_delay += fetch_delay
-  var my_delay = total_delay
+  counts[url] = counts[url] || 0
+  total_delay += start_delay + incr_delay * counts[url]
+  counts[url]++
+  count = counts[url]
+  var my_delay = Math.max(0, startTime + total_delay - Date.now())
 
-  console.log('scheduled for ' + (my_delay / 1000) + 's\t@ ' + url)
-  var d = delay(my_delay)
-
-  return d.then(function() {
-    console.log('requesting ' + url)
+  function request() {
+    console.log('request #' + count + ' for\t' + url)
     return jsdom.envAsync(url, scripts, config)
-    })
+  }
+
+  console.log('scheduled for ' + (total_delay/1000) + '(' + (my_delay/1000) + ')s\t@ ' + url)
+  return Promise.delay(my_delay).then(request).catch(() => fetch(url))
 }
 
 function changeNames(horticultures) {
@@ -158,16 +167,12 @@ function parseGroup(window) {
     var cells = $("td", tr)
 
     var [horticulture, date] = cells.toArray()
-    if(! /\w+/.test(horticulture.textContent)) return purePromise([]);
+    if(! /\w+/.test(horticulture.textContent)) return Promise.resolve([]);
 
     var href = $('a', horticulture).attr("href")
     var url = relativeURL(window.location.href, href)
 
-    function donegoofed(e) {
-      log(e, url)
-    }
-
-    return fetch(url).then(parsePage).catch(donegoofed)
+    return fetchPage(url)
   }
 }
 
@@ -183,6 +188,8 @@ function parsePage(window) {
   var all         = $('*')
   var firstIndex  = all.index($('body'))
   var previous    = undefined
+
+  console.log('processing\t' + url)
 
   var tables = $("table")
   var [startIndexes, endIndexes] = unzip(map(tables, tagIndexes))
@@ -335,16 +342,4 @@ function concat() {
 function last(xs) {
   var arr = map(xs, id)
   return arr[arr.length - 1]
-}
-
-function purePromise(x) {
-  return new Promise((resolve, request) => resolve(x))
-}
-
-function delay(ms) {
-    var deferred = Promise.pending();
-    setTimeout(function(){
-	    deferred.resolve();
-	}, ms);
-    return deferred.promise;
 }
