@@ -90,13 +90,12 @@ function parseRoot(root) {
 function fetch(url) {
   total_delay += fetch_delay
   var my_delay = total_delay
-  var msg = (my_delay / 1000) + 's\t@' + url
 
-  console.log('waiting for ' + msg)
+  console.log('scheduled for ' + (my_delay / 1000) + 's\t@ ' + url)
   var d = delay(my_delay)
 
   return d.then(function() {
-    console.log('waited for ' + msg)
+    console.log('requesting ' + url)
     return jsdom.envAsync(url, scripts, config)
     })
 }
