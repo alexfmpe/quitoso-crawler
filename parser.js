@@ -218,9 +218,11 @@ function parsePage(window) {
     var match       = everything.match(regexp)
     var obs         = match == null ? "" : match[1]
     var list        = slice(obs.split(/^\d+[.]/gim), 1)
-
+    list = list.concat(map($('ol li'), e => e.textContent))
+/*
     if(list.length == 0)
         list = map($('ol li'), e => e.textContent)
+        */
     console.log(list)
     return list.map((x,i) => "(" + (i+1) + ") " + x.trimAll())
   }
