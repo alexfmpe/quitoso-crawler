@@ -3,9 +3,12 @@ var fs        = require("fs")
 var util      = require("util")
 var jsdom     = require("jsdom")
 var extend    = require("extend")
+var request   = require('request');
+var cheerio   = require('cheerio');
 var Promise   = require("bluebird")
 var escape    = require("escape-string-regexp")
 var innerText = require('text-content')
+
 
 Promise.promisifyAll(fs)
 Promise.promisifyAll(jsdom)
@@ -15,7 +18,6 @@ var page  = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/N
 var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
 var root  = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
-
   ['INSECTICIDAS E FUNGICIDAS', 'Culturas',                           "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"    ],
   ['INSECTICIDAS E FUNGICIDAS', 'Florestais',                         "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_florest.htm"     ],
   ['INSECTICIDAS E FUNGICIDAS', 'Ornamentais',                        "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_ornam.htm"       ],
@@ -26,7 +28,6 @@ var roots = [
   ['Moluscicidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_moluscicidas.htm"     ],
   ['Nematodicidas ',            '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_nematodicidas.htm"    ],
   ['Repulsivos',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_repulsivos.htm"       ],
-
   ['Rodenticidas',              '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/outros_rodenticidas.htm"     ],
   ['HERBICIDAS',                '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm"         ],
 //['ignore',                    '',                                   "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/reg_cresc_guia.htm"          ],
@@ -48,8 +49,8 @@ var outputFile = 'fito.json'
 var production = !true
 var singlePage = true
 var total_delay = 0
-var start_delay = 500
-var incr_delay  = 5000
+var start_delay = 0
+var incr_delay  = 100
 
 var show = util.inspect
 var update = data => target => extend(target, data)
@@ -66,7 +67,7 @@ var counts = {}
 
 var columns = 'infestant substance formulation dosage days'.split(/\s+/)
 var isTextNode = n => n.nodeType == NODE_TYPES.TEXT_NODE
-var isReallyText = n => isTextNode(n) && !n.textContent.trim().startsWith('<!--')
+var isReallyText = $ => n => isTextNode(n) && !$(n).text().trim().startsWith('<!--')
 
 
 main()
@@ -99,13 +100,21 @@ function fetch(url) {
   count = counts[url]
   var my_delay = Math.max(0, startTime + total_delay - Date.now())
 
-  function request() {
+  function req() {
     console.log('request #' + count + ' for\t' + url)
-    return jsdom.envAsync(url, scripts, config)
+    //var def = Promise.deferred
+    return new Promise((resolve, reject) =>
+      request(url, function(err, res, body) {
+         if(err)  reject(err)
+         if(body) resolve([cheerio.load(body), url])
+      })
+    )
+    //return p.then(() => console.log('then')).catch(() => console.log('catch'))
+    //return jsdom.envAsync(url, scripts, config)
   }
 
   console.log('scheduled for ' + (total_delay/1000) + '(' + (my_delay/1000) + ')s\t@ ' + url)
-  return Promise.delay(my_delay).then(request).catch(() => fetch(url))
+  return Promise.delay(my_delay).then(req)//.catch(() => fetch(url))
 }
 
 function changeNames(horticultures) {
@@ -156,9 +165,10 @@ function relativeURL(origin, path) {
   return parent + path
 }
 
-function parseGroup(window) {
-  var $ = window.$
-  var title = $('*').filter(isReallyText)[0]
+function parseGroup(args) {
+  var [$, url] = args
+//  var $ = window.$
+  var title = $('*').filter(isReallyText($))[0]
   var family
   var rows = $("tr")
   return Promise.all(map(rows, parseRow)).then(flatten)
@@ -167,24 +177,26 @@ function parseGroup(window) {
     var cells = $("td", tr)
 
     var [horticulture, date] = cells.toArray()
-    if(! /\w+/.test(horticulture.textContent)) return Promise.resolve([]);
+    if(! /\w+/.test($(horticulture).text())) return Promise.resolve([]);
 
     var href = $('a', horticulture).attr("href")
-    var url = relativeURL(window.location.href, href)
+    var page = relativeURL(url, href)
 
-    return fetchPage(url)
+    return fetchPage(page)
   }
 }
 
 function textBetween($, start, stop) {
   var between = slice($("*"), start, stop)
-  var texts = flatMap(between, e => filter(e.childNodes, isReallyText))
+  var t = between[0].childNodes[0]
+  var texts = flatMap(between, e => filter(e.childNodes, isReallyText($)))
   return $(texts).text()
 }
 
-function parsePage(window) {
-  var $           = window.$
-  var url         = window.location.href
+function parsePage(args) {
+  var [$, url] = args
+//  var $           = window.$
+//  var url         = window.location.href
   var all         = $('*')
   var firstIndex  = all.index($('body'))
   var previous    = undefined
@@ -204,7 +216,7 @@ function parsePage(window) {
 
   function tagIndexes(e) {
     var start = all.index(e)
-    var end = start + 1 + $(e).find('*').size()
+    var end = start + 1 + $(e).find('*').length
     return [start, end]
   }
 
@@ -213,9 +225,9 @@ function parsePage(window) {
   }
 
   function parseObservations() {
-    var everything  = window.document.body.textContent
+    var everything  = $('*').text()
     var start       = "Observações:"
-    var end         = escape(last($('a')).textContent)
+    var end         = escape($(last($('a'))).text())
     var anything    = "[^]*"
     var flags       = "i"
     var capture     = "(" + anything + ")"
@@ -223,7 +235,7 @@ function parsePage(window) {
     var match       = everything.match(regexp)
     var obs         = match == null ? "" : match[1]
     var list        = slice(obs.split(/^\d+[.]/gim), 1)
-    list = list.concat(map($('ol li'), e => e.textContent))
+    list = list.concat(map($('ol li'), e => $(e).text()))
     return list.map((x,i) => "(" + (i+1) + ") " + x.trimAll())
   }
 
@@ -233,7 +245,7 @@ function parsePage(window) {
   }
 
   function parseRow(tr) {
-    if(tr.textContent.trimAll() == "") return;
+    if($(tr).text().trimAll() == "") return;
     var cells = $("td", tr).toArray()
 
     var href = $('a', cells[1]).attr('href')
@@ -246,10 +258,10 @@ function parsePage(window) {
       formulation   : formulation,
       dosage        : dosage,
       days          : days,
-      observations  : observations == undefined ? '' : observations.textContent.trimAll(),
+      observations  : observations == undefined ? '' : $(observations).text().trimAll(),
     }
 
-    map(columns, c => h[c] = h[c].textContent.trimAll())
+    map(columns, c => h[c] = $(h[c]).text().trimAll())
 
     previous = previous || h
     h.infestant    = h.infestant    || previous.infestant
