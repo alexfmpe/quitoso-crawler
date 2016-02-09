@@ -10,8 +10,9 @@ var innerText = require('text-content')
 Promise.promisifyAll(fs)
 Promise.promisifyAll(jsdom)
 
-var page   = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
-var root    = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
+var page  = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
+var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
+var root  = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
   /*
   ['INSECTICIDAS E FUNGICIDAS', 'Culturas',                           "http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/insect_fung_culturas.htm"    ],
@@ -70,12 +71,10 @@ main()
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-/*
-  var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
-  fetch(group).then(parseGroup).then(id).then(output)
-*/
+
   //Promise.all(map(roots, parseRoot)).then(flatten).then(changeNames).then(output)
-  fetch(page).then(parsePage).then(output)
+  fetch(group).then(parseGroup).then(id).then(output)
+  //fetch(page).then(parsePage).then(output)
 }
 
 function parseRoot(root) {
@@ -190,7 +189,6 @@ function parsePage(window) {
   var intervals = zip(concat([firstIndex], endIndexes), startIndexes)
   var titles = map(intervals, i => textBetween($, i[0], i[1]).trimAll())
   var obs = parseObservations()
-  console.log(obs)
 
   if(tables.length > 1)     log(MESSAGES.multipleTables, url)
   if(tables.length == 0)    log(MESSAGES.zeroTables,     url)
@@ -219,11 +217,6 @@ function parsePage(window) {
     var obs         = match == null ? "" : match[1]
     var list        = slice(obs.split(/^\d+[.]/gim), 1)
     list = list.concat(map($('ol li'), e => e.textContent))
-/*
-    if(list.length == 0)
-        list = map($('ol li'), e => e.textContent)
-        */
-    console.log(list)
     return list.map((x,i) => "(" + (i+1) + ") " + x.trimAll())
   }
 
@@ -261,7 +254,7 @@ function parsePage(window) {
     function addObservations(column) {
         var matches = h[column].match(/\(\d+\)/g) || []
         var numbers = matches.map(s => s.slice(1, -1)).map(Number)
-        map(numbers, n => h.observations += obs[n-1])
+        map(numbers, n => h.observations += (obs[n-1] || ''))
     }
 
     return h
