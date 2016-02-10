@@ -52,7 +52,6 @@ var total_delay = 0
 var start_delay = 0
 var incr_delay  = 100
 
-var show = util.inspect
 var update = data => target => extend(target, data)
 
 var MESSAGES = {
@@ -137,7 +136,7 @@ function clear(file) {
 }
 
 function output(json) {
-  return fs.appendFileSync(outputFile, show(json) + '\n')
+  return fs.appendFileSync(outputFile, JSON.stringify(json, undefined, ' ') + '\n')
 }
 
 function log(e, cause) {
