@@ -42,7 +42,6 @@ var roots = [
 })
 
 var scripts = ["http://code.jquery.com/jquery.js"]
-var config  = { encoding: "binary" }
 
 var errFile    = 'fito.txt'
 var outputFile = 'fito.json'
@@ -100,10 +99,14 @@ function fetch(url) {
   var my_delay = Math.max(0, startTime + total_delay - Date.now())
 
   function req() {
+    var options = {
+      uri: url,
+      encoding: 'binary',
+    }
     console.log('request #' + count + ' for\t' + url)
     //var def = Promise.deferred
     return new Promise((resolve, reject) =>
-      request(url, function(err, res, body) {
+      request(options, function(err, res, body) {
          if(err)  reject(err)
          if(body) resolve([cheerio.load(body), url])
       })
