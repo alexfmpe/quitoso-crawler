@@ -1,17 +1,13 @@
-
 var fs        = require("fs")
 var util      = require("util")
-var jsdom     = require("jsdom")
 var extend    = require("extend")
-var request   = require('request');
+var request   = require('request-promise');
 var cheerio   = require('cheerio');
 var Promise   = require("bluebird")
 var escape    = require("escape-string-regexp")
 var innerText = require('text-content')
 
-
 Promise.promisifyAll(fs)
-Promise.promisifyAll(jsdom)
 
 var startTime = Date.now()
 var page  = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
@@ -104,15 +100,7 @@ function fetch(url) {
       encoding: 'binary',
     }
     console.log('request #' + count + ' for\t' + url)
-    //var def = Promise.deferred
-    return new Promise((resolve, reject) =>
-      request(options, function(err, res, body) {
-         if(err)  reject(err)
-         if(body) resolve([cheerio.load(body), url])
-      })
-    )
-    //return p.then(() => console.log('then')).catch(() => console.log('catch'))
-    //return jsdom.envAsync(url, scripts, config)
+    return request(options).then(body => [cheerio.load(body), url])
   }
 
   console.log('scheduled for ' + (total_delay/1000) + '(' + (my_delay/1000) + ')s\t@ ' + url)
