@@ -12,7 +12,7 @@ Promise.promisifyAll(fs)
 
 var startTime = Date.now()
 var page  = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
-page = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/cv%20frisada.htm'
+//page = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/cv%20frisada.htm'
 var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
 var root  = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
@@ -221,7 +221,7 @@ function parsePage(args) {
   }
 
   function parseObservations() {
-    var everything  = $('*').text()
+    var everything  = $('body').text()
     var start       = "Observações:"
     var end         = escape($(last($('a'))).text())
     var anything    = "[^]*"
