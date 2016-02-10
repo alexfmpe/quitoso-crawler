@@ -2,6 +2,7 @@ var fs        = require("fs")
 var util      = require("util")
 var extend    = require("extend")
 var request   = require('request-promise');
+var errors    = require('request-promise/errors');
 var cheerio   = require('cheerio');
 var Promise   = require("bluebird")
 var escape    = require("escape-string-regexp")
@@ -11,6 +12,7 @@ Promise.promisifyAll(fs)
 
 var startTime = Date.now()
 var page  = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
+page = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/cv%20frisada.htm'
 var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
 var root  = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
@@ -69,14 +71,23 @@ main()
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-  Promise.all(map(roots, parseRoot)).then(flatten).then(changeNames).then(output)
+  //Promise.all(map(roots, parseRoot)).then(flatten).then(changeNames).then(output)
   //fetch(group).then(parseGroup).then(id).then(output)
-  //fetch(page).then(parsePage).then(output)
+  fetchPage(page).then(output)
 }
 
 //function fetchRoot()    { fetch(root).then(parseRoot).catch(fetchRoot) }
 //function fetchGroup()   { fetch(root).then(parseRoot).catch(fetchRoot) }
-function fetchPage(url) { return fetch(url).then(parsePage).catch(() => fetchPage(url)) }
+function fetchPage(url) {
+  return fetch(url)
+    .then(parsePage)
+    .catch(errors.StatusCodeError,
+      function(e) {
+        log(e.statusCode, url)
+        return []
+      })
+    .catch(() => fetchPage(url))
+  }
 
 function parseRoot(root) {
   var newFields = {
@@ -130,8 +141,8 @@ function output(json) {
   return fs.appendFileSync(outputFile, JSON.stringify(json, undefined, ' ') + '\n')
 }
 
-function log(e, cause) {
-  var text = e + (cause ? "\n @ " + cause : '') + "\n"
+function log(e, url) {
+  var text = e + (url ? "\n @ " + url : '') + "\n"
   fs.appendFileSync(errFile, text)
 }
 
@@ -143,11 +154,6 @@ function debugWarning() {
   debug("===============================")
   debug("WARNING: NOT IN PRODUCTION MODE")
   debug("===============================")
-}
-
-function GTFO(e, cause) {
-  log("GTFO " + e + "\n" + cause)
-  process.exit(1)
 }
 
 function relativeURL(origin, path) {
