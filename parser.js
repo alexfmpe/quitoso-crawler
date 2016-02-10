@@ -65,19 +65,28 @@ var columns = 'infestant substance formulation dosage days'.split(/\s+/)
 var isTextNode = n => n.nodeType == NODE_TYPES.TEXT_NODE
 var isReallyText = $ => n => isTextNode(n) && !$(n).text().trim().startsWith('<!--')
 
-
 main()
+
+
 
 function main() {
   map([errFile, outputFile], clear)
   debugWarning()
-  //Promise.all(map(roots, parseRoot)).then(flatten).then(changeNames).then(output)
-  //fetch(group).then(parseGroup).then(id).then(output)
-  fetchPage(page).then(output)
+  var jsons = Promise.all(map(roots, parseRoot)).then(flatten)
+  //var jsons = fetch(group).then(parseGroup).then(id).then(output)
+  //var jsons = fetchPage(page)
+  jsons.then(verify).then(changeNames).then(output)
 }
 
-//function fetchRoot()    { fetch(root).then(parseRoot).catch(fetchRoot) }
-//function fetchGroup()   { fetch(root).then(parseRoot).catch(fetchRoot) }
+
+function verify(jsons) {
+  jsons.forEach(j => Object.keys(j).forEach(
+    function(k) {
+      if(j[k] == undefined) log('UNDEFINED', JSON.stringify(j))
+    }))
+  return jsons
+}
+
 function fetchPage(url) {
   return fetch(url)
     .then(parsePage)
@@ -92,7 +101,7 @@ function fetchPage(url) {
 function parseRoot(root) {
   var newFields = {
     family: root.family,
-    application: root.application
+    application: root.application,
   }
 
   return fetch(root.url).then(parseGroup).then(group => map(group, update(newFields)))
@@ -115,7 +124,7 @@ function fetch(url) {
   }
 
   console.log('scheduled for ' + (total_delay/1000) + '(' + (my_delay/1000) + ')s\t@ ' + url)
-  return Promise.delay(my_delay).then(req)//.catch(() => fetch(url))
+  return Promise.delay(my_delay).then(req)
 }
 
 function changeNames(horticultures) {
@@ -129,7 +138,8 @@ function changeNames(horticultures) {
     formulacao        : h.formulation,
     dose              : h.dosage,
     int_seguranca     : h.days,
-    observacoes       : h.observations
+    observacoes       : h.observations,
+    url               : h.url,
   }})
 }
 
@@ -141,8 +151,8 @@ function output(json) {
   return fs.appendFileSync(outputFile, JSON.stringify(json, undefined, ' ') + '\n')
 }
 
-function log(e, url) {
-  var text = e + (url ? "\n @ " + url : '') + "\n"
+function log(e, source) {
+  var text = e + (source ? "\n @ " + source : '') + "\n"
   fs.appendFileSync(errFile, text)
 }
 
@@ -163,7 +173,6 @@ function relativeURL(origin, path) {
 
 function parseGroup(args) {
   var [$, url] = args
-//  var $ = window.$
   var title = $('*').filter(isReallyText($))[0]
   var family
   var rows = $("tr")
@@ -191,8 +200,6 @@ function textBetween($, start, stop) {
 
 function parsePage(args) {
   var [$, url] = args
-//  var $           = window.$
-//  var url         = window.location.href
   var all         = $('*')
   var firstIndex  = all.index($('body'))
   var previous    = undefined
@@ -255,6 +262,7 @@ function parsePage(args) {
       dosage        : dosage,
       days          : days,
       observations  : observations == undefined ? '' : $(observations).text().trimAll(),
+      url           : url,
     }
 
     map(columns, c => h[c] = $(h[c]).text().trimAll())
