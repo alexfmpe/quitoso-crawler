@@ -159,6 +159,7 @@ function changeNames(horticultures) {
     observacoes       : h.observations,
     url               : h.url,
     codigo_bayer      : h.code,
+    actualizado_em    : h.date,
   }})
 }
 
@@ -206,7 +207,7 @@ function parseGroup(args) {
     var href = $('a', horticulture).attr("href")
     var page = relativeURL(url, href)
 
-    return fetchPage(page)
+    return fetchPage(page).then(jsons => map(jsons, update({date: $(date).text()})))
   }
 }
 
