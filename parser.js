@@ -13,6 +13,7 @@ Promise.promisifyAll(fs)
 var startTime = Date.now()
 var page  = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Outros/Nematodicidas/tabaco.htm'
 //page = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Insec&Fung/Culturas/cv%20frisada.htm'
+    page = 'http://www.dgav.pt/fitofarmaceuticos/guia/finalidades_guia/Herbicidas/escorcioneira(salsifis,%20cercefi).htm'
 var group = 'http://www.dgav.pt/fitofarmaceuticos/guia/Introd_guia/herbicidas_guia.htm'
 var root  = "http://www.dgv.min-agricultura.pt/portal/page/portal/DGV/genericos?generico=4183425&cboui=4183425"
 var roots = [
@@ -50,6 +51,7 @@ var start_delay = 0
 var incr_delay  = 100
 
 var update = data => target => extend(target, data)
+var jsonify = j => JSON.stringify(j, undefined, ' ')
 
 var MESSAGES = {
   loadError       : "Error when loading page and/or jQuery",
@@ -75,16 +77,32 @@ function main() {
   var jsons = Promise.all(map(roots, parseRoot)).then(flatten)
   //var jsons = fetch(group).then(parseGroup).then(id).then(output)
   //var jsons = fetchPage(page)
-  jsons.then(verify).then(changeNames).then(output)
+  //jsons.then(stats).then(jsonify).then(log)
+  jsons.then(verify)
+  jsons.then(clean).then(changeNames).then(output)
 }
 
+
+function clean(jsons) {
+  map(jsons, 
+    j => map(Object.keys(j), 
+      k => j[k] = j[k].trimAll()))
+
+  return jsons
+}
 
 function verify(jsons) {
   jsons.forEach(j => Object.keys(j).forEach(
     function(k) {
-      if(j[k] == undefined) log('UNDEFINED', JSON.stringify(j))
+      if(j[k] == undefined) log('UNDEFINED', jsonify(j))
     }))
-  return jsons
+}
+
+
+function stats(jsons) {
+  var codes = {}
+  jsons.forEach(j => codes[j.code] = (codes[j.code] || 0) + 1)
+  return codes
 }
 
 function fetchPage(url) {
@@ -140,6 +158,7 @@ function changeNames(horticultures) {
     int_seguranca     : h.days,
     observacoes       : h.observations,
     url               : h.url,
+    codigo_bayer      : h.code,
   }})
 }
 
@@ -148,7 +167,7 @@ function clear(file) {
 }
 
 function output(json) {
-  return fs.appendFileSync(outputFile, JSON.stringify(json, undefined, ' ') + '\n')
+  return fs.appendFileSync(outputFile, jsonify(json) + '\n')
 }
 
 function log(e, source) {
@@ -243,8 +262,13 @@ function parsePage(args) {
   }
 
   function parseTable(table, title) {
-    var rows = prune(map($("tr", table).next(), parseRow))
-    return map(rows, update({culture: title}))
+    var rows  = prune(map($("tr", table).next(), parseRow))
+    var match = title.match(/(.+)C.digo\s*Bayer\s*(.+)/i)
+    var obj = match == undefined 
+	? { culture: title,    code: ''       }
+        : { culture: match[1], code: match[2] }
+
+    return map(rows, update(obj))
   }
 
   function parseRow(tr) {
